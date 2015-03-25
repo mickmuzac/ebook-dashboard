@@ -17,19 +17,13 @@
 		#main{
 			width: 100%;
 		}
+		#sidebar{
+			float: left;
+		}
 		svg{
 			width: 50%;
 			height: 50%;
-			float:left;
-			clear: left;
-		}
-		
-		#svg{
-			width: 65%;
-			height: 55%;
-			margin: 0 auto;
-			float: none;
-			
+			float:right;
 		}
 		
 		#svg2, #table, #table2{
@@ -49,79 +43,112 @@
 	</style>
 	<div id="main">
 		<svg id="svg"></svg>
+		<div id="sidebar" ng-controller="sidebar">			
+			<span ng-show="parents.length > 0">Parents</span>
+			<ul>
+				<li ng-repeat="item in parents">
+					<a href="">{{item}}</a>
+				</li>
+			</ul>	
+			<span ng-show="groups.length > 0">Groups</span>
+			<ul>
+				<li ng-repeat="item in groups">
+					<a href="">{{item}}</a>
+				</li>
+			</ul>
+		</div>
 	</div>
-	<div id="children" ng-controller="sideBar">
+	<div id="children" ng-controller="charts">
 		<h2 style="text-align:center;">{{sayStuff}}</h2>
 		
 		3 plus <input type="number" ng-model="someNum"></input> equals <span>{{ add3(someNum) }}</span>
-		
-		<svg id="svg5"></svg>
-		<div id="table2"></div>
-		
-		<svg id="svg3"></svg>
-		<svg id="svg2"></svg>
-		
+
 		<svg id="svg4"></svg>
-		<div id="table"></div>
 	</div>
 
 	<script type="text/javascript">
-		//To-do: add comments
-		
 		var dashModule = angular.module("ebookDash", []);
-		dashModule.controller('sideBar', ['$scope', function($scope){
+		
+		var groupingArr = [];
+		var parentArr = [];
+		
+		getUniqueContextActivities();
+		function getUniqueContextActivities(){
+			
+			window.statements.forEach(function(element){
+				var grouping = null;
+				var parents = null;
+				
+				try{ grouping = element.context.contextActivities.grouping; }
+				catch(e){}			
+				
+				try{ parents = element.context.contextActivities.parent; }
+				catch(e){}
+				
+				if(grouping != null && grouping.length > 0){
+					grouping.forEach(function(item){
+						var str = item.definition.name["en-US"];
+						if(groupingArr.indexOf(str) == -1) groupingArr.push(str);
+					});
+				}		
+				
+				if(parents != null && parents.length > 0){
+					parents.forEach(function(item){
+						var str = item.definition.name["en-US"];
+						if(parentArr.indexOf(str) == -1) parentArr.push(str);
+					});
+				}
+			});
+		};
+		
+		dashModule.controller('charts', ['$scope', function($scope){
 		
 			$scope.sayStuff = "Hey there friend!";
+			
+			
 			$scope.add3 = function(val){
 				return val + 3;
 			};
 		}]);
+		
+		dashModule.controller('sidebar', ['$scope', function($scope){
+			
+			$scope.parents = parentArr;
+			$scope.groups = groupingArr;
+			//new ADL.Collection(window.statements);
+			//debugger;
+			//$scope.
+		}]);
 	
 		var wrapper = new XAPIWrapper({"endpoint" : 'https://lrs.adlnet.gov/xAPI/'});
 		var dash = new ADL.XAPIDashboard('#svg');
-		var saveTest = '', scoreArr, totalStudents = 30;
 		
 		dash.addStatements(window.statements);
-		
-		
-		
+
 		var minMaxAverage = dash.createMultiBarChart({
 			pre: function(data){
-				return data.where("result.score.raw != null").orderBy("object.definition.name");
+				return data.where("verb.id = 'http://adlnet.gov/expapi/verbs/answered'").orderBy("object.id");
 			},
-			aggregate: ADL.multiAggregate("result.score.raw", ADL.min, ADL.average, ADL.max),
-			groupBy:  'object.definition.name',
+			aggregate: ADL.multiAggregate("actor.mbox", ADL.count),
+			groupBy:  'actor.mbox',
+			innerGroupBy: 'object.id',
 			customize: function(nvd3Chart){
-				nvd3Chart.forceY([0, 120]);
 				nvd3Chart.yAxis.axisLabel("Grade");			
 			}
 		});
 
 		var studentsInRange = dash.createBarChart({
 			container: "#svg4",
-			groupBy: 'actor.name',
-			pre: function(data, event){
-				return data.where('result.score.raw > 0').orderBy('result.score.raw', 'desc');
-			},
-			aggregate: ADL.select('result.score.raw'),
+			groupBy: 'actor.mbox',
+			aggregate: ADL.count(),
 			customize: function(nvd3Chart, event){
 				nvd3Chart.xAxis.rotateLabels(45).axisLabel("Student");
 				nvd3Chart.yAxis.axisLabel("Grade");
-				nvd3Chart.forceY(100);
 			}
 		});
 
 		minMaxAverage.draw();	
 		studentsInRange.draw();
-
-		/*if( window.statements ){
-			dash.addStatements(window.statements);
-			window.statements = null;
-			generateGraphs();
-		}
-		else {
-			dash.fetchAllStatements({'since': new Date(Date.now() - set.day * 30).toISOString()}, wrapper, generateGraphs);
-		}*/
 	</script>
 </body>
 </html>
