@@ -42,7 +42,9 @@
 		}
 	</style>
 	<div id="main">
-		<div id="sidebar" ng-controller="sidebar">			
+		<div id="sidebar" ng-controller="sidebar">	
+			
+			<!-- Parents list -->		
 			<span ng-show="parents.length > 0">Parents</span>
 			<ul>
 				<li ng-repeat="item in parents">
@@ -50,6 +52,7 @@
 				</li>
 			</ul>	
 			
+			<!-- Groups list -->
 			<span ng-show="groups.length > 0">Groups</span>
 			<ul>
 				<li ng-repeat="item in groups">
@@ -57,32 +60,71 @@
 				</li>
 			</ul>
 			
-			<div ng-show="header.grouping || header.parent">
+			<!-- Filters and such -->
+			<div ng-show="filter.grouping || filter.parent">
 				<span>Filters</span>
 				<ul>
-					<li ng-show="header.parent">Parent: <br/>{{header.parent}}</li>
-					<li ng-show="header.grouping">Grouping: <br/>{{header.grouping}}</li>
+					<li ng-show="filter.parent">
+						Parent: <br/> {{filter.parent}} 
+						(<a href="" ng-click="clearFilter('parent')">x</a>)
+					</li>
+					<li ng-show="filter.grouping">
+						Grouping: <br/> {{filter.grouping}} 
+						(<a href="" ng-click="clearFilter('grouping')">x</a>)
+					</li>
 				</ul>
 			</div>
 		</div>
 	
+		<!-- Charts live here! -->
 		<div id="children">			
 			<div class="svg-container"><svg id="svg"></svg></div>
 			<div class="svg-container"><svg id="svg4"></svg></div>
 		</div>
 	</div>
 	<script type="text/javascript">
+		var wrapper = new XAPIWrapper({"endpoint" : 'https://lrs.adlnet.gov/xAPI/'});
+		var dash = new ADL.XAPIDashboard();
+		
+		//You could fetch statements instead of statically including them here
+		dash.addStatements(window.statements);
+
+		var minMaxAverage = dash.createMultiBarChart({
+			container: '#svg',
+			pre: "verb.id = 'http://adlnet.gov/expapi/verbs/answered'",
+			aggregate: ADL.multiAggregate("actor.mbox", ADL.count),
+			groupBy: 'actor.mbox',
+			innerGroupBy: 'object.id',
+			customize: function(nvd3Chart){
+				nvd3Chart.yAxis.axisLabel("Grade");			
+			}
+		});
+
+		var studentsInRange = dash.createBarChart({
+			container: "#svg4",
+			groupBy: 'actor.mbox',
+			aggregate: ADL.count(),
+			customize: function(nvd3Chart, event){
+				nvd3Chart.xAxis.rotateLabels(45).axisLabel("Student");
+				nvd3Chart.yAxis.axisLabel("Grade");
+			}
+		});
+
+		studentsInRange.draw();
+		
 		var dashModule = angular.module("ebookDash", []);
 		
+		//This service exists only to share data between two controllers (there used to be two controllers)
 		dashModule.factory('chartFilter', function(){
 			return {filter:{grouping: '', parent: ''}, data:{grouping: [], parents: []}};
 		});		
 		
+		//This is the 'service' that fetches all unique groupings and parents and stores it in the chartFilter object
 		dashModule.factory('updateChartFilters', ['chartFilter', function(chartFilter){
-			return function(){
+			return function(val, type){		
+				
 				var groupingArr = chartFilter.data.grouping;
 				var parentArr = chartFilter.data.parents;
-				
 				window.statements.forEach(function(element){
 					var grouping = null;
 					var parents = null;
@@ -107,57 +149,40 @@
 						});
 					}
 				});
+				
+				chartFilter.filter[type] = val;
+				var cond1 = '', cond2 = '';
+				
+				if(chartFilter.filter['grouping']) cond1 = getAddCondition('grouping');
+				if(chartFilter.filter['parent']) cond2 = getAddCondition('parent');
+				
+				var condition = cond1 + (cond1 && cond2 ? ' and ' : ' ') + cond2;
+				
+				if(cond1 || cond2) minMaxAverage.opts.pre = condition; // "verb.id = 'http://adlnet.gov/expapi/verbs/answered' and " + addCondition;
+				console.log(minMaxAverage.opts.pre);
+				
+				minMaxAverage.draw();
 			};
+			
+			function getAddCondition(type){
+				return 'context.contextActivities.' + type + '.*.definition.name.en-US = ' + "'" + chartFilter.filter[type] + "'";
+			}
 		}]);
 		
 		dashModule.controller('sidebar', ['$scope', 'chartFilter', 'updateChartFilters', function($scope, chartFilter, updateChartFilters){
 			$scope.parents = chartFilter.data.parents;
 			$scope.groups = chartFilter.data.grouping;
-			$scope.header = chartFilter.filter;
+			$scope.filter = chartFilter.filter;
 			
-			$scope.filterClick = function(val, type){
-				
-				chartFilter.filter[type] = val;
-				
-				
-				var addCondition = 'context.contextActivities.' + type + '.*.definition.name.en-US = ' + "'" + val + "'";
-				minMaxAverage.opts.pre = addCondition; // "verb.id = 'http://adlnet.gov/expapi/verbs/answered' and " + addCondition;
-				console.log(minMaxAverage.opts.pre);
-				
-				minMaxAverage.draw();
-				updateChartFilters();
+			$scope.clearFilter = function(type){
+				chartFilter.filter[type] = '';
+				updateChartFilters('', type);
 			};
 			
-			updateChartFilters();
+			$scope.filterClick = updateChartFilters;
+			
+			updateChartFilters('', 'parent');
 		}]);
-	
-		var wrapper = new XAPIWrapper({"endpoint" : 'https://lrs.adlnet.gov/xAPI/'});
-		var dash = new ADL.XAPIDashboard('#svg');
-		
-		dash.addStatements(window.statements);
-
-		var minMaxAverage = dash.createMultiBarChart({
-			pre: "verb.id = 'http://adlnet.gov/expapi/verbs/answered'",
-			aggregate: ADL.multiAggregate("actor.mbox", ADL.count),
-			groupBy: 'actor.mbox',
-			innerGroupBy: 'object.id',
-			customize: function(nvd3Chart){
-				nvd3Chart.yAxis.axisLabel("Grade");			
-			}
-		});
-
-		var studentsInRange = dash.createBarChart({
-			container: "#svg4",
-			groupBy: 'actor.mbox',
-			aggregate: ADL.count(),
-			customize: function(nvd3Chart, event){
-				nvd3Chart.xAxis.rotateLabels(45).axisLabel("Student");
-				nvd3Chart.yAxis.axisLabel("Grade");
-			}
-		});
-
-		minMaxAverage.draw();	
-		studentsInRange.draw();
 	</script>
 </body>
 </html>
