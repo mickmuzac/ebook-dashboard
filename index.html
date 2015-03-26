@@ -14,110 +14,121 @@
 		.nv-axislabel {
 			font-size: 18px;
 		}
-		#main{
+		html, body, #main{
 			width: 100%;
+			height: 100%;
+			margin: 0;
+			padding: 0;
 		}
 		#sidebar{
 			float: left;
+			width: 10%;
+			height: 100%;
+			background: #f8f8f8;
+			padding: 5px 0 0 5px;
 		}
-		svg{
+		#children{
+			float: right;
+			width: 85%;
+			padding: 5px;
+		}	
+		.svg-container{
 			width: 50%;
 			height: 50%;
 			float:right;
 		}
-		
-		#svg2, #table, #table2{
-			width: 40%;
-			float: right;
-			clear:right;
-			text-align:center;
-			min-height: 500px;
-		}
-		
-		#children{
-			width: 100%;
-			clear:both;
-			margin-top: -50px;
-			padding: 70px 0;
+		.heading{
+			font-size: 30px;
 		}
 	</style>
 	<div id="main">
-		<svg id="svg"></svg>
 		<div id="sidebar" ng-controller="sidebar">			
 			<span ng-show="parents.length > 0">Parents</span>
 			<ul>
 				<li ng-repeat="item in parents">
-					<a href="">{{item}}</a>
+					<a href="" ng-click="filterClick(item, 'parent')">{{item}}</a>
 				</li>
 			</ul>	
+			
 			<span ng-show="groups.length > 0">Groups</span>
 			<ul>
 				<li ng-repeat="item in groups">
-					<a href="">{{item}}</a>
+					<a href="" ng-click="filterClick(item, 'grouping')">{{item}}</a>
 				</li>
 			</ul>
+			
+			<div ng-show="header.grouping || header.parent">
+				<span>Filters</span>
+				<ul>
+					<li ng-show="header.parent">Parent: <br/>{{header.parent}}</li>
+					<li ng-show="header.grouping">Grouping: <br/>{{header.grouping}}</li>
+				</ul>
+			</div>
+		</div>
+	
+		<div id="children">			
+			<div class="svg-container"><svg id="svg"></svg></div>
+			<div class="svg-container"><svg id="svg4"></svg></div>
 		</div>
 	</div>
-	<div id="children" ng-controller="charts">
-		<h2 style="text-align:center;">{{sayStuff}}</h2>
-		
-		3 plus <input type="number" ng-model="someNum"></input> equals <span>{{ add3(someNum) }}</span>
-
-		<svg id="svg4"></svg>
-	</div>
-
 	<script type="text/javascript">
 		var dashModule = angular.module("ebookDash", []);
 		
-		var groupingArr = [];
-		var parentArr = [];
+		dashModule.factory('chartFilter', function(){
+			return {filter:{grouping: '', parent: ''}, data:{grouping: [], parents: []}};
+		});		
 		
-		getUniqueContextActivities();
-		function getUniqueContextActivities(){
-			
-			window.statements.forEach(function(element){
-				var grouping = null;
-				var parents = null;
+		dashModule.factory('updateChartFilters', ['chartFilter', function(chartFilter){
+			return function(){
+				var groupingArr = chartFilter.data.grouping;
+				var parentArr = chartFilter.data.parents;
 				
-				try{ grouping = element.context.contextActivities.grouping; }
-				catch(e){}			
-				
-				try{ parents = element.context.contextActivities.parent; }
-				catch(e){}
-				
-				if(grouping != null && grouping.length > 0){
-					grouping.forEach(function(item){
-						var str = item.definition.name["en-US"];
-						if(groupingArr.indexOf(str) == -1) groupingArr.push(str);
-					});
-				}		
-				
-				if(parents != null && parents.length > 0){
-					parents.forEach(function(item){
-						var str = item.definition.name["en-US"];
-						if(parentArr.indexOf(str) == -1) parentArr.push(str);
-					});
-				}
-			});
-		};
-		
-		dashModule.controller('charts', ['$scope', function($scope){
-		
-			$scope.sayStuff = "Hey there friend!";
-			
-			
-			$scope.add3 = function(val){
-				return val + 3;
+				window.statements.forEach(function(element){
+					var grouping = null;
+					var parents = null;
+					
+					try{ grouping = element.context.contextActivities.grouping; }
+					catch(e){}			
+					
+					try{ parents = element.context.contextActivities.parent; }
+					catch(e){}
+					
+					if(grouping != null && grouping.length > 0){
+						grouping.forEach(function(item){
+							var str = item.definition.name["en-US"];
+							if(groupingArr.indexOf(str) == -1) groupingArr.push(str);
+						});
+					}		
+					
+					if(parents != null && parents.length > 0){
+						parents.forEach(function(item){
+							var str = item.definition.name["en-US"];
+							if(parentArr.indexOf(str) == -1) parentArr.push(str);
+						});
+					}
+				});
 			};
 		}]);
 		
-		dashModule.controller('sidebar', ['$scope', function($scope){
+		dashModule.controller('sidebar', ['$scope', 'chartFilter', 'updateChartFilters', function($scope, chartFilter, updateChartFilters){
+			$scope.parents = chartFilter.data.parents;
+			$scope.groups = chartFilter.data.grouping;
+			$scope.header = chartFilter.filter;
 			
-			$scope.parents = parentArr;
-			$scope.groups = groupingArr;
-			//new ADL.Collection(window.statements);
-			//debugger;
-			//$scope.
+			$scope.filterClick = function(val, type){
+				
+				chartFilter.filter[type] = val;
+				
+				
+				var addCondition = 'context.contextActivities.' + type + '.*.definition.name.en-US = ' + "'" + val + "'";
+				minMaxAverage.opts.pre = addCondition; // "verb.id = 'http://adlnet.gov/expapi/verbs/answered' and " + addCondition;
+				console.log(minMaxAverage.opts.pre);
+				
+				minMaxAverage.draw();
+				updateChartFilters();
+			};
+			
+			updateChartFilters();
 		}]);
 	
 		var wrapper = new XAPIWrapper({"endpoint" : 'https://lrs.adlnet.gov/xAPI/'});
@@ -126,11 +137,9 @@
 		dash.addStatements(window.statements);
 
 		var minMaxAverage = dash.createMultiBarChart({
-			pre: function(data){
-				return data.where("verb.id = 'http://adlnet.gov/expapi/verbs/answered'").orderBy("object.id");
-			},
+			pre: "verb.id = 'http://adlnet.gov/expapi/verbs/answered'",
 			aggregate: ADL.multiAggregate("actor.mbox", ADL.count),
-			groupBy:  'actor.mbox',
+			groupBy: 'actor.mbox',
 			innerGroupBy: 'object.id',
 			customize: function(nvd3Chart){
 				nvd3Chart.yAxis.axisLabel("Grade");			
