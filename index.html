@@ -33,9 +33,10 @@
 			padding: 5px;
 		}	
 		.svg-container{
-			width: 50%;
+			width: 80%;
 			height: 50%;
-			float:right;
+			float:left;
+			margin: 0 auto;
 		}
 		.heading{
 			font-size: 30px;
@@ -43,6 +44,14 @@
 	</style>
 	<div id="main">
 		<div id="sidebar" ng-controller="sidebar">	
+			
+			<!-- Verbs list -->		
+			<span ng-show="verbs.length > 0">Verbs</span>
+			<ul>
+				<li ng-repeat="item in verbs">
+					<a href="" ng-click="filterClick(item, 'verb')">{{item}}</a>
+				</li>
+			</ul>		
 			
 			<!-- Parents list -->		
 			<span ng-show="parents.length > 0">Parents</span>
@@ -61,9 +70,13 @@
 			</ul>
 			
 			<!-- Filters and such -->
-			<div ng-show="filter.grouping || filter.parent">
+			<div ng-show="filter.grouping || filter.parent || filter.verb">
 				<span>Filters</span>
 				<ul>
+					<li ng-show="filter.verb">
+						Verbs: <br/> {{filter.verb}} 
+						(<a href="" ng-click="clearFilter('verb')">x</a>)
+					</li>
 					<li ng-show="filter.parent">
 						Parent: <br/> {{filter.parent}} 
 						(<a href="" ng-click="clearFilter('parent')">x</a>)
@@ -102,21 +115,24 @@
 
 		var studentsInRange = dash.createBarChart({
 			container: "#svg4",
-			groupBy: 'actor.mbox',
+			groupBy: 'verb.display.en-US',
 			aggregate: ADL.count(),
+			post: function(data){
+				data.orderBy('out', 'desc');
+			},
 			customize: function(nvd3Chart, event){
 				nvd3Chart.xAxis.rotateLabels(45).axisLabel("Student");
 				nvd3Chart.yAxis.axisLabel("Grade");
 			}
 		});
 
-		studentsInRange.draw();
+		
 		
 		var dashModule = angular.module("ebookDash", []);
 		
 		//This service exists only to share data between two controllers (there used to be two controllers)
 		dashModule.factory('chartFilter', function(){
-			return {filter:{grouping: '', parent: ''}, data:{grouping: [], parents: []}};
+			return {filter:{grouping: '', parent: '', verb: ''}, data:{grouping: [], parents: [], verbs: []}};
 		});		
 		
 		//This is the 'service' that fetches all unique groupings and parents and stores it in the chartFilter object
@@ -125,9 +141,16 @@
 				
 				var groupingArr = chartFilter.data.grouping;
 				var parentArr = chartFilter.data.parents;
+				var verbsArr = chartFilter.data.verbs;
+				verbsArr.length = 0;	
+				
 				window.statements.forEach(function(element){
 					var grouping = null;
 					var parents = null;
+					
+					if(verbsArr.indexOf(element.verb.display["en-US"]) == -1){
+						verbsArr.push(element.verb.display["en-US"]);
+					}
 					
 					try{ grouping = element.context.contextActivities.grouping; }
 					catch(e){}			
@@ -151,17 +174,24 @@
 				});
 				
 				chartFilter.filter[type] = val;
-				var cond1 = '', cond2 = '';
+				var cond1 = '', cond2 = '', cond3 = '';
 				
 				if(chartFilter.filter['grouping']) cond1 = getAddCondition('grouping');
 				if(chartFilter.filter['parent']) cond2 = getAddCondition('parent');
+				if(chartFilter.filter['verb']) cond3 = 'verb.display.en-US = "' + chartFilter.filter.verb + '"';
 				
-				var condition = cond1 + (cond1 && cond2 ? ' and ' : ' ') + cond2;
+				var condition = cond1 + (cond1 && cond2 ? ' and ' : ' ') + cond2 + ((cond1 || cond2) && cond3 ? ' and ' : ' ') + cond3;
 				
-				if(cond1 || cond2) minMaxAverage.opts.pre = condition; // "verb.id = 'http://adlnet.gov/expapi/verbs/answered' and " + addCondition;
+				if(cond1 || cond2 || cond3){
+					minMaxAverage.opts.pre = condition;
+				}
+				
+				studentsInRange.opts.pre = condition;
 				console.log(minMaxAverage.opts.pre);
+
 				
 				minMaxAverage.draw();
+				studentsInRange.draw();
 			};
 			
 			function getAddCondition(type){
@@ -172,6 +202,7 @@
 		dashModule.controller('sidebar', ['$scope', 'chartFilter', 'updateChartFilters', function($scope, chartFilter, updateChartFilters){
 			$scope.parents = chartFilter.data.parents;
 			$scope.groups = chartFilter.data.grouping;
+			$scope.verbs = chartFilter.data.verbs;
 			$scope.filter = chartFilter.filter;
 			
 			$scope.clearFilter = function(type){
