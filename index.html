@@ -32,14 +32,34 @@
 			width: 85%;
 			padding: 5px;
 		}	
-		.svg-container{
+		.svg-container, .query{
 			width: 80%;
-			height: 50%;
+			height: 45%;
 			float:left;
 			margin: 0 auto;
 		}
 		.heading{
 			font-size: 30px;
+		}
+		input{
+			float: right;
+			width: 80%;
+		}
+		.query{
+			height: 10%;
+			width: 100%;
+			border-top: 1px solid #aaa;
+			padding-top: 10px;
+		}
+		.half{
+			height: 100%;
+			width: 45%;
+			float: left;
+			padding-right: 50px;
+		}
+		.row{
+			width: 100%;
+			height: 30%;
 		}
 	</style>
 	<div id="main">
@@ -93,6 +113,18 @@
 		<div id="children">			
 			<div class="svg-container"><svg id="svg"></svg></div>
 			<div class="svg-container"><svg id="svg4"></svg></div>
+			<div class="query" ng-controller="charts">
+				<div class="half">
+					<div class="row">Filter: <input type="text" disabled="disabled" ng-model="q1Obj.pre" /></div>
+					<div class="row">GroupBy: <input type="text" disabled="disabled" ng-model="q1Obj.groupBy" /></div>
+					<div class="row">InnerGroupBy: <input type="text" disabled="disabled" ng-model="q1Obj.innerGroupBy" /></div>
+				</div>
+				<div class="half">
+					<div class="row">Filter: <input type="text" disabled="disabled" ng-model="q2Obj.pre" /></div>
+					<div class="row">GroupBy: <input type="text" disabled="disabled" ng-model="q2Obj.groupBy" /></div>
+					<div class="row">InnerGroupBy: <input type="text" disabled="disabled" ng-model="q2Obj.innerGroupBy" /></div>
+				</div>
+			</div>
 		</div>
 	</div>
 	<script type="text/javascript">
@@ -116,7 +148,7 @@
 				});
 			},
 			customize: function(nvd3Chart){
-				nvd3Chart.yAxis.axisLabel("# answers");		
+				nvd3Chart.yAxis.axisLabel("# attempts");		
 				nvd3Chart.xAxis.axisLabel("Actor");		
 			}
 		});
@@ -142,7 +174,7 @@
 		
 		var dashModule = angular.module("ebookDash", []);
 		
-		//This service exists only to share data between two controllers (when there was two controllers)
+		//This service exists only to share data between the two controllers
 		dashModule.factory('chartFilter', function(){
 			return {filter:{grouping: '', parent: '', verb: ''}, data:{grouping: [], parents: [], verbs: []}};
 		});		
@@ -195,11 +227,11 @@
 				var condition = cond1 + (cond1 && cond2 ? ' and ' : '') + cond2 + ((cond1 || cond2) && cond3 ? ' and ' : '') + cond3;
 				
 				if(cond1 || cond2 || cond3){
-					minMaxAverage.opts.pre = condition;
+					minMaxAverage.opts.pre = condition + " and verb.id = 'http://adlnet.gov/expapi/verbs/answered'";
 					studentsInRange.opts.pre = condition;
 				}
 				else{
-					minMaxAverage.opts.pre = ''; "verb.id = 'http://adlnet.gov/expapi/verbs/answered'";
+					minMaxAverage.opts.pre = "verb.id = 'http://adlnet.gov/expapi/verbs/answered'";
 					studentsInRange.opts.pre = condition;
 				}
 				
@@ -212,6 +244,11 @@
 			function getAddCondition(type){
 				return 'context.contextActivities.' + type + '.*.definition.name.en-US = ' + "'" + chartFilter.filter[type] + "'";
 			}
+		}]);
+		
+		dashModule.controller('charts', ['$scope', 'chartFilter', function($scope, chartFilter){
+			$scope.q1Obj = minMaxAverage.opts;
+			$scope.q2Obj = studentsInRange.opts;
 		}]);
 		
 		dashModule.controller('sidebar', ['$scope', 'chartFilter', 'updateChartFilters', function($scope, chartFilter, updateChartFilters){
