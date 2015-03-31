@@ -96,6 +96,7 @@
 		</div>
 	</div>
 	<script type="text/javascript">
+		//"use strict";
 		var wrapper = new XAPIWrapper({"endpoint" : 'https://lrs.adlnet.gov/xAPI/'});
 		var dash = new ADL.XAPIDashboard();
 		
@@ -108,8 +109,15 @@
 			aggregate: ADL.multiAggregate("actor.mbox", ADL.count),
 			groupBy: 'actor.mbox',
 			innerGroupBy: 'object.id',
+			post: function(data){
+				data.contents.forEach(function(elem){
+					//This just cleans up the object.id labels. object.display would be nice here..
+					elem.key = decodeURIComponent(elem.key.replace(/http.*\/activities\//gi, '').replace(/count$/gi, ''));					
+				});
+			},
 			customize: function(nvd3Chart){
-				nvd3Chart.yAxis.axisLabel("Grade");			
+				nvd3Chart.yAxis.axisLabel("# answers");		
+				nvd3Chart.xAxis.axisLabel("Actor");		
 			}
 		});
 
@@ -121,21 +129,25 @@
 				data.orderBy('out', 'desc');
 			},
 			customize: function(nvd3Chart, event){
-				nvd3Chart.xAxis.rotateLabels(45).axisLabel("Student");
-				nvd3Chart.yAxis.axisLabel("Grade");
+				nvd3Chart.xAxis.rotateLabels(45).axisLabel("Verb");
+				nvd3Chart.yAxis.axisLabel("Count");
 			}
 		});
+		
+		function cleanIDLabel(str){
+			return decodeURIComponent(elem.key.replace(/http.*\//gi, '').replace(/count$/gi, ''));
+		}
 
 		
 		
 		var dashModule = angular.module("ebookDash", []);
 		
-		//This service exists only to share data between two controllers (there used to be two controllers)
+		//This service exists only to share data between two controllers (when there was two controllers)
 		dashModule.factory('chartFilter', function(){
 			return {filter:{grouping: '', parent: '', verb: ''}, data:{grouping: [], parents: [], verbs: []}};
 		});		
 		
-		//This is the 'service' that fetches all unique groupings and parents and stores it in the chartFilter object
+		//This is the 'service' that fetches all unique groupings, parents, and verbs and stores it in the chartFilter object
 		dashModule.factory('updateChartFilters', ['chartFilter', function(chartFilter){
 			return function(val, type){		
 				
@@ -180,15 +192,18 @@
 				if(chartFilter.filter['parent']) cond2 = getAddCondition('parent');
 				if(chartFilter.filter['verb']) cond3 = 'verb.display.en-US = "' + chartFilter.filter.verb + '"';
 				
-				var condition = cond1 + (cond1 && cond2 ? ' and ' : ' ') + cond2 + ((cond1 || cond2) && cond3 ? ' and ' : ' ') + cond3;
+				var condition = cond1 + (cond1 && cond2 ? ' and ' : '') + cond2 + ((cond1 || cond2) && cond3 ? ' and ' : '') + cond3;
 				
 				if(cond1 || cond2 || cond3){
 					minMaxAverage.opts.pre = condition;
+					studentsInRange.opts.pre = condition;
+				}
+				else{
+					minMaxAverage.opts.pre = ''; "verb.id = 'http://adlnet.gov/expapi/verbs/answered'";
+					studentsInRange.opts.pre = condition;
 				}
 				
-				studentsInRange.opts.pre = condition;
-				console.log(minMaxAverage.opts.pre);
-
+				console.log(condition);
 				
 				minMaxAverage.draw();
 				studentsInRange.draw();
