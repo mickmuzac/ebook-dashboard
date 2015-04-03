@@ -7,61 +7,10 @@
 	
 	<script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/angularjs/1.3.15/angular.min.js"></script>
 	
-	<script src="extra/gen-lrs-data.js"></script>
+	<script src="js/initData.js"></script>
+	<link rel="stylesheet" type="text/css" href="css/styles.css" />
 </head>
 <body ng-app="ebookDash">
-	<style>
-		.nv-axislabel {
-			font-size: 18px;
-		}
-		html, body, #main{
-			width: 100%;
-			height: 100%;
-			margin: 0;
-			padding: 0;
-		}
-		#sidebar{
-			float: left;
-			width: 10%;
-			height: 100%;
-			background: #f8f8f8;
-			padding: 5px 0 0 5px;
-		}
-		#children{
-			float: right;
-			width: 85%;
-			padding: 5px;
-		}	
-		.svg-container, .query{
-			width: 80%;
-			height: 45%;
-			float:left;
-			margin: 0 auto;
-		}
-		.heading{
-			font-size: 30px;
-		}
-		input{
-			float: right;
-			width: 80%;
-		}
-		.query{
-			height: 10%;
-			width: 100%;
-			border-top: 1px solid #aaa;
-			padding-top: 10px;
-		}
-		.half{
-			height: 100%;
-			width: 45%;
-			float: left;
-			padding-right: 50px;
-		}
-		.row{
-			width: 100%;
-			height: 30%;
-		}
-	</style>
 	<div id="main">
 		<div id="sidebar" ng-controller="sidebar">	
 			
@@ -130,50 +79,15 @@
 		</div>
 	</div>
 	<script type="text/javascript">
-		//"use strict";
+		"use strict";
 		var wrapper = new XAPIWrapper({"endpoint" : 'https://lrs.adlnet.gov/xAPI/'});
 		var dash = new ADL.XAPIDashboard();
 		
-		//You could fetch statements instead of statically including them here
+		//replace with dash.fetchAllStatements(query, fetchDoneCallback);
 		dash.addStatements(window.statements);
 
-		var minMaxAverage = dash.createMultiBarChart({
-			container: '#svg',
-			pre: "verb.id = 'http://adlnet.gov/expapi/verbs/answered'",
-			aggregate: ADL.multiAggregate("actor.mbox", ADL.count),
-			groupBy: 'actor.mbox',
-			innerGroupBy: 'object.id',
-			post: function(data){
-				data.contents.forEach(function(elem){
-					//This just cleans up the object.id labels. object.display would be nice here..
-					elem.key = decodeURIComponent(elem.key.replace(/http.*\/activities\//gi, '').replace(/count$/gi, ''));					
-				});
-			},
-			customize: function(nvd3Chart){
-				nvd3Chart.yAxis.axisLabel("# attempts");		
-				nvd3Chart.xAxis.axisLabel("Actor");		
-			}
-		});
-
-		var studentsInRange = dash.createBarChart({
-			container: "#svg4",
-			groupBy: 'verb.display.en-US',
-			aggregate: ADL.count(),
-			post: function(data){
-				data.orderBy('out', 'desc');
-			},
-			customize: function(nvd3Chart, event){
-				nvd3Chart.xAxis.rotateLabels(45).axisLabel("Verb");
-				nvd3Chart.yAxis.axisLabel("Count");
-			}
-		});
-		
-		function cleanIDLabel(str){
-			return decodeURIComponent(elem.key.replace(/http.*\//gi, '').replace(/count$/gi, ''));
-		}
-
-		
-		
+		var chart1 = dash.createMultiBarChart(chartGlobals.chart1Obj);
+		var chart2 = dash.createBarChart(chartGlobals.chart2Obj);		
 		var dashModule = angular.module("ebookDash", []);
 		
 		//This service exists only to share data between the two controllers
@@ -190,7 +104,7 @@
 				var verbsArr = chartFilter.data.verbs;
 				verbsArr.length = 0;	
 				
-				window.statements.forEach(function(element){
+				dash.data.contents.forEach(function(element){
 					var grouping = null;
 					var parents = null;
 					
@@ -229,18 +143,18 @@
 				var condition = cond1 + (cond1 && cond2 ? ' and ' : '') + cond2 + ((cond1 || cond2) && cond3 ? ' and ' : '') + cond3;
 				
 				if(cond1 || cond2 || cond3){
-					minMaxAverage.opts.pre = condition + " and verb.id = 'http://adlnet.gov/expapi/verbs/answered'";
-					studentsInRange.opts.pre = condition;
+					chart1.opts.pre = condition + " and " + chartGlobals.basePre;
+					chart2.opts.pre = condition;
 				}
 				else{
-					minMaxAverage.opts.pre = "verb.id = 'http://adlnet.gov/expapi/verbs/answered'";
-					studentsInRange.opts.pre = condition;
+					chart1.opts.pre = chartGlobals.basePre;
+					chart2.opts.pre = condition;
 				}
 				
 				console.log(condition);
 				
-				minMaxAverage.draw();
-				studentsInRange.draw();
+				chart1.draw();
+				chart2.draw();
 			};
 			
 			function getAddCondition(type){
@@ -249,8 +163,8 @@
 		}]);
 		
 		dashModule.controller('charts', ['$scope', 'chartFilter', function($scope, chartFilter){
-			$scope.q1Obj = minMaxAverage.opts;
-			$scope.q2Obj = studentsInRange.opts;
+			$scope.q1Obj = chart1.opts;
+			$scope.q2Obj = chart2.opts;
 		}]);
 		
 		dashModule.controller('sidebar', ['$scope', 'chartFilter', 'updateChartFilters', function($scope, chartFilter, updateChartFilters){
@@ -268,6 +182,10 @@
 			
 			updateChartFilters('', 'parent');
 		}]);
+		
+		function cleanIDLabel(str){
+			return decodeURIComponent(elem.key.replace(/http.*\//gi, '').replace(/count$/gi, ''));
+		}		
 	</script>
 </body>
 </html>
