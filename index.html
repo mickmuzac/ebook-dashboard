@@ -12,7 +12,7 @@
 </head>
 <body ng-app="ebookDash">
 	<div id="main">
-		<div id="sidebar" ng-controller="sidebar">	
+		<div id="sidebar" ng-controller="sidebar" ng-show="false || loaded">	
 			
 			<!-- Verbs list -->		
 			<span ng-show="verbs.length > 0">Verbs</span>
@@ -59,10 +59,10 @@
 		</div>
 	
 		<!-- Charts live here! -->
-		<div id="children">			
+		<div id="children" ng-controller="charts" ng-show="false || loaded">			
 			<div class="svg-container"><svg id="svg"></svg></div>
 			<div class="svg-container"><svg id="svg4"></svg></div>
-			<div class="query" ng-controller="charts">
+			<div class="query">
 				<div class="half">
 					<div class="row">Where: <input type="text" disabled="disabled" ng-model="q1Obj.globals.where" /></div>
 					<div class="row">GroupBy: <input type="text" disabled="disabled" ng-model="q1Obj.groupBy" /></div>
@@ -81,11 +81,8 @@
 	<script type="text/javascript">
 		"use strict";
 		var wrapper = new XAPIWrapper({"endpoint" : 'https://lrs.adlnet.gov/xAPI/'});
-		var dash = new ADL.XAPIDashboard();
+		var dash = new ADL.XAPIDashboard();		
 		
-		//replace with dash.fetchAllStatements(query, fetchDoneCallback);
-		dash.addStatements(window.statements);
-
 		var chart1 = dash[chartGlobals.chart1.chartType](chartGlobals.chart1.chartObj);
 		var chart2 = dash[chartGlobals.chart2.chartType](chartGlobals.chart2.chartObj);		
 		var dashModule = angular.module("ebookDash", []);
@@ -98,7 +95,6 @@
 		//This is the 'service' that fetches all unique groupings, parents, and verbs and stores it in the chartFilter object
 		dashModule.factory('updateChartFilters', ['chartFilter', function(chartFilter){
 			return function(val, type){		
-				
 				var groupingArr = chartFilter.data.grouping;
 				var parentArr = chartFilter.data.parents;
 				var verbsArr = chartFilter.data.verbs;
@@ -167,6 +163,7 @@
 			$scope.q2Obj = chart2.opts;
 			$scope.q1Obj.globals = chartGlobals.chart1;
 			$scope.q2Obj.globals = chartGlobals.chart2;
+			$scope.loaded = false;
 		}]);
 		
 		dashModule.controller('sidebar', ['$scope', 'chartFilter', 'updateChartFilters', function($scope, chartFilter, updateChartFilters){
@@ -181,9 +178,32 @@
 			};
 			
 			$scope.filterClick = updateChartFilters;
-			
-			updateChartFilters('', 'parent');
+			$scope.loaded = false;
 		}]);	
+		
+		function bindData(){
+			var sidebar = angular.element(document.querySelector("#sidebar")).scope();
+			var charts = angular.element(document.querySelector("#children")).scope();
+			sidebar.$apply(function(){
+				sidebar.filterClick('', 'parent');
+				sidebar.loaded = true;
+			});
+			charts.$apply(function(){
+				charts.loaded = true;
+			});
+		}
+		
+		/* Comment the lines below and uncomment this comment block for live data...
+		dash.fetchAllStatements('', function(data){
+			bindData();
+		});
+		*/
+		
+		//Stale data...
+		document.addEventListener('DOMContentLoaded', function(){
+			dash.addStatements(window.statements);
+			bindData();
+		});
 	</script>
 </body>
 </html>
