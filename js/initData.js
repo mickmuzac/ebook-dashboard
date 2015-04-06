@@ -137,7 +137,7 @@ chartGlobals.chart2.preFunc = function(data){ data.where(chartGlobals.chart2.whe
 	else{
 		
 		//Chart 1
-		chartGlobals.chart1.basePre = chartGlobals.chart1.where = "verb.id = 'http://adlnet.gov/expapi/verbs/answered'";
+		chartGlobals.chart1.basePre = chartGlobals.chart1.where = "object.id = /question|assessment/ and verb.id = /answered|completed|passed|/";
 		chartGlobals.chart1.chartObj = {
 			container: '#svg',
 			pre: chartGlobals.chart1.preFunc,
@@ -151,16 +151,18 @@ chartGlobals.chart2.preFunc = function(data){ data.where(chartGlobals.chart2.whe
 				});
 			},
 			customize: function(nvd3Chart){
-				nvd3Chart.yAxis.axisLabel("# attempts");		
+				nvd3Chart.yAxis.axisLabel("# statements");		
 				nvd3Chart.xAxis.axisLabel("Actor");		
 			}
 		};
 		
 		//Chart 2
+		chartGlobals.chart2.basePre = chartGlobals.chart2.where = chartGlobals.chart1.basePre;
 		chartGlobals.chart2.chartObj = {
 			container: "#svg4",
 			groupBy: 'verb.display.en-US',
 			aggregate: ADL.count(),
+			pre: chartGlobals.chart2.preFunc,
 			post: function(data){
 				data.orderBy('out', 'desc');
 			},
