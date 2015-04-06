@@ -64,13 +64,13 @@
 			<div class="svg-container"><svg id="svg4"></svg></div>
 			<div class="query" ng-controller="charts">
 				<div class="half">
-					<div class="row">Filter: <input type="text" disabled="disabled" ng-model="q1Obj.pre" /></div>
+					<div class="row">Where: <input type="text" disabled="disabled" ng-model="q1Obj.globals.where" /></div>
 					<div class="row">GroupBy: <input type="text" disabled="disabled" ng-model="q1Obj.groupBy" /></div>
 					<div class="row">InnerGroupBy: <input type="text" disabled="disabled" ng-model="q1Obj.innerGroupBy" /></div>
 					<div class="row">Aggregation: <input type="text" disabled="disabled" ng-model="q1Obj.aggregate._name" /></div>
 				</div>
 				<div class="half">
-					<div class="row">Filter: <input type="text" disabled="disabled" ng-model="q2Obj.pre" /></div>
+					<div class="row">Where: <input type="text" disabled="disabled" ng-model="q2Obj.globals.where" /></div>
 					<div class="row">GroupBy: <input type="text" disabled="disabled" ng-model="q2Obj.groupBy" /></div>
 					<div class="row">InnerGroupBy: <input type="text" disabled="disabled" ng-model="q2Obj.innerGroupBy" /></div>
 					<div class="row">Aggregation: <input type="text" disabled="disabled" ng-model="q2Obj.aggregate._name" /></div>
@@ -86,8 +86,8 @@
 		//replace with dash.fetchAllStatements(query, fetchDoneCallback);
 		dash.addStatements(window.statements);
 
-		var chart1 = dash.createMultiBarChart(chartGlobals.chart1Obj);
-		var chart2 = dash.createBarChart(chartGlobals.chart2Obj);		
+		var chart1 = dash[chartGlobals.chart1.chartType](chartGlobals.chart1.chartObj);
+		var chart2 = dash[chartGlobals.chart2.chartType](chartGlobals.chart2.chartObj);		
 		var dashModule = angular.module("ebookDash", []);
 		
 		//This service exists only to share data between the two controllers
@@ -143,15 +143,15 @@
 				var condition = cond1 + (cond1 && cond2 ? ' and ' : '') + cond2 + ((cond1 || cond2) && cond3 ? ' and ' : '') + cond3;
 				
 				if(cond1 || cond2 || cond3){
-					chart1.opts.pre = condition + " and " + chartGlobals.basePre;
-					chart2.opts.pre = condition;
+					chartGlobals.chart1.where = condition + " and " + chartGlobals.chart1.basePre;
+					chartGlobals.chart2.where = condition + " and " + chartGlobals.chart2.basePre;
 				}
 				else{
-					chart1.opts.pre = chartGlobals.basePre;
-					chart2.opts.pre = condition;
+					chartGlobals.chart1.where = chartGlobals.chart1.basePre;
+					chartGlobals.chart2.where = chartGlobals.chart2.basePre;
 				}
 				
-				console.log(condition);
+				console.log("Chart 2 pre: " + chart2.opts.pre);
 				
 				chart1.draw();
 				chart2.draw();
@@ -165,6 +165,8 @@
 		dashModule.controller('charts', ['$scope', 'chartFilter', function($scope, chartFilter){
 			$scope.q1Obj = chart1.opts;
 			$scope.q2Obj = chart2.opts;
+			$scope.q1Obj.globals = chartGlobals.chart1;
+			$scope.q2Obj.globals = chartGlobals.chart2;
 		}]);
 		
 		dashModule.controller('sidebar', ['$scope', 'chartFilter', 'updateChartFilters', function($scope, chartFilter, updateChartFilters){
@@ -181,11 +183,7 @@
 			$scope.filterClick = updateChartFilters;
 			
 			updateChartFilters('', 'parent');
-		}]);
-		
-		function cleanIDLabel(str){
-			return decodeURIComponent(elem.key.replace(/http.*\//gi, '').replace(/count$/gi, ''));
-		}		
+		}]);	
 	</script>
 </body>
 </html>
